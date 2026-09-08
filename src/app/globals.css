@@ -1,0 +1,146 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/**
+ * Paleta inspirada na interface do próprio jogo: azul profundo do Vale,
+ * dourado hextech e o ciano das bordas. Tema escuro por padrão — é onde o
+ * jogador está quando abre isso no segundo monitor ou no celular.
+ */
+:root {
+  --radius: 0.5rem;
+
+  --background: oklch(0.17 0.035 240);
+  --surface: oklch(0.21 0.038 240);
+  --surface-raised: oklch(0.25 0.04 240);
+  --foreground: oklch(0.94 0.012 90);
+  --muted-foreground: oklch(0.68 0.02 240);
+
+  /* dourado hextech */
+  --gold: oklch(0.76 0.11 85);
+  --gold-dim: oklch(0.58 0.08 85);
+  /* ciano das bordas do cliente */
+  --hex: oklch(0.75 0.12 195);
+
+  --border: oklch(0.35 0.035 240);
+  --border-strong: oklch(0.48 0.05 235);
+  --input: oklch(0.3 0.035 240);
+  --ring: var(--hex);
+
+  --primary: var(--gold);
+  --primary-foreground: oklch(0.17 0.035 240);
+
+  --advantage: oklch(0.72 0.16 155);
+  --even: oklch(0.8 0.13 85);
+  --disadvantage: oklch(0.65 0.19 25);
+  --destructive: oklch(0.65 0.19 25);
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--foreground);
+  --secondary: var(--surface-raised);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-raised);
+  --accent: oklch(0.3 0.045 235);
+  --accent-foreground: var(--foreground);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-gold: var(--gold);
+  --color-gold-dim: var(--gold-dim);
+  --color-hex: var(--hex);
+  --color-advantage: var(--advantage);
+  --color-even: var(--even);
+  --color-disadvantage: var(--disadvantage);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --font-display: var(--font-display), Georgia, serif;
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply text-foreground antialiased;
+    -webkit-tap-highlight-color: transparent;
+    background:
+      radial-gradient(1100px 520px at 50% -10%, oklch(0.26 0.06 235 / 0.75), transparent 70%),
+      var(--background);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  .font-display {
+    font-family: var(--font-display), Georgia, serif;
+    letter-spacing: 0.01em;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button {
+    opacity: 0.35;
+  }
+}
+
+@layer components {
+  /* moldura dourada dos painéis principais */
+  .panel {
+    @apply bg-card relative rounded-md border;
+    border-color: color-mix(in oklch, var(--gold) 28%, var(--border));
+    box-shadow: 0 1px 0 color-mix(in oklch, var(--gold) 12%, transparent) inset;
+  }
+
+  .panel-plain {
+    @apply bg-card rounded-md border;
+  }
+
+  /* faixa de título com a régua dourada do cliente */
+  .rule-heading {
+    @apply text-gold flex items-center gap-3 text-xs font-semibold tracking-[0.14em] uppercase;
+  }
+  .rule-heading::after {
+    content: "";
+    @apply h-px flex-1;
+    background: linear-gradient(
+      to right,
+      color-mix(in oklch, var(--gold) 55%, transparent),
+      transparent
+    );
+  }
+
+  /* moldura de retrato de campeão */
+  .portrait {
+    @apply rounded-sm border object-cover;
+    border-color: color-mix(in oklch, var(--gold) 45%, transparent);
+  }
+
+  .portrait-empty {
+    @apply flex items-center justify-center rounded-sm border border-dashed;
+    border-color: var(--border-strong);
+    background: color-mix(in oklch, var(--surface-raised) 70%, transparent);
+  }
+}

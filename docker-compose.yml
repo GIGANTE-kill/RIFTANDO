@@ -1,0 +1,24 @@
+# Opcional: Postgres de verdade, para quando o PGlite embutido não bastar
+# (vários processos ao mesmo tempo, ou deploy). Suba com `docker compose up -d`
+# e troque DATABASE_URL no .env.local para a linha comentada de lá.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: riftando-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: riftando
+    ports:
+      - "5432:5432"
+    volumes:
+      - riftando-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d riftando"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  riftando-pgdata:
