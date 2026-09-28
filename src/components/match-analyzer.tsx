@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, RotateCcw, X } from "lucide-react";
 import { ChampionSlot } from "@/components/champion-slot";
 import { DraftPhase } from "@/components/draft-board";
+import { SyncBar, useLeagueState } from "@/components/league-sync";
+import { draftFromChampSelect, matchFromLive, type RolePrior } from "@/engine/league-sync";
 import { EntityPicker, type PickerEntry } from "@/components/entity-picker";
 import { analyze, itemFit, type Catalog } from "@/engine/itemization";
 import { simulateCombat, simulateTeamCombat, type CombatSnapshot } from "@/engine/combat-sim";
@@ -25,6 +27,7 @@ import {
 import { buildGamePlan } from "@/engine/game-plan";
 import { buildMatchDiagnosis } from "@/engine/prompt-builder";
 import { tagLabel } from "@/engine/tag-catalog";
+import { buildStatsIndex } from "@/engine/stats";
 import type { CatalogPayload } from "@/db/queries/catalog";
 import type { ChampionRef } from "@/engine/types";
 import { cn } from "@/lib/utils";
@@ -50,6 +53,10 @@ type Session = {
   activeFightAllies: string[];
   /** campeões do time inimigo marcados para o cálculo de combate */
   activeFightEnemies: string[];
+  /** nível de cada campeão, quando o jogo informa; senão vale o seu */
+  levels: Record<string, number>;
+  /** ler seleção e partida do LoL aberto nesta máquina */
+  sync: boolean;
 };
 
 const INITIAL: Session = {
@@ -66,6 +73,8 @@ const INITIAL: Session = {
   enemyItems: {},
   activeFightAllies: [],
   activeFightEnemies: [],
+  levels: {},
+  sync: true,
 };
 
 const VERDICT_STYLE: Record<Verdict, string> = {
@@ -117,9 +126,86 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
       champions: championMap,
       tagRules: payload.matchupRules,
       overrides: payload.matchupOverrides,
+      stats: payload.stats ? buildStatsIndex(payload.stats) : undefined,
     }),
     [payload, championMap],
   );
+
+  // --- sincronização com o LoL aberto nesta máquina
+  const league = useLeagueState(loaded && session.sync);
+  const itemMap = itemCatalog.items;
+  const rolePrior: RolePrior | undefined = useMemo(() => {
+    if (!payload.stats?.roleStats.length) return undefined;
+    const games = new Map<string, number>();
+    const totals = new Map<string, number>();
+    for (const r of payload.stats.roleStats) {
+      games.set(`${r.championId}|${r.role}`, r.games);
+      totals.set(r.championId, (totals.get(r.championId) ?? 0) + r.games);
+    }
+    return (championId, role) => {
+      const total = totals.get(championId);
+      // abaixo de 20 partidas a frequência é ruído — melhor a classe decidir
+      if (!total || total < 20) return undefined;
+      return (games.get(`${championId}|${role}`) ?? 0) / total;
+    };
+  }, [payload.stats]);
+  const lastPhase = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!league) return;
+    const phase = league.champSelect ? "ChampSelect" : league.live ? "InProgress" : league.phase;
+    const entering = phase !== lastPhase.current;
+    lastPhase.current = phase;
+
+    if (league.champSelect) {
+      const draft = draftFromChampSelect(league.champSelect, championMap, rolePrior);
+      setSession((prev) => {
+        // seleção nova: a partida anterior não vale mais nada
+        const base = entering ? { ...INITIAL, sync: prev.sync } : prev;
+        const role = draft.myRole ?? base.role;
+        return {
+          ...base,
+          stage: "SELECAO",
+          role,
+          // slot vazio no cliente não apaga o que você está testando aqui (o seu
+          // pick ou uma resposta escolhida no "forte e fraco contra"); o que o
+          // cliente informa sempre vence. `base` já foi zerado ao entrar na
+          // seleção, então nada de uma partida anterior sobrevive.
+          allies: Object.fromEntries(
+            ROLES.map((r) => [r, draft.allies[r] ?? base.allies[r]]),
+          ) as TeamSlots,
+          enemies: draft.enemies,
+          bans: draft.bans,
+        };
+      });
+      return;
+    }
+
+    if (league.live) {
+      const match = matchFromLive(league.live, championMap, itemMap, rolePrior);
+      if (!match) return;
+      setSession((prev) => {
+        const present = new Set([...Object.values(match.allies), ...Object.values(match.enemies)]);
+        return {
+          ...prev,
+          stage: "PARTIDA",
+          role: match.myRole,
+          allies: match.allies,
+          enemies: match.enemies,
+          allyItems: match.allyItems,
+          enemyItems: match.enemyItems,
+          levels: match.levels,
+          minute: match.minute,
+          myLevel: match.myLevel,
+          myGold: match.myGold,
+          activeFightAllies: prev.activeFightAllies.filter((id) => present.has(id)),
+          activeFightEnemies: prev.activeFightEnemies.filter((id) => present.has(id)),
+        };
+      });
+    }
+  }, [league, championMap, itemMap, rolePrior]);
+
+  const liveSynced = Boolean(session.sync && league?.live);
 
   // seu campeão é sempre o do seu slot no time: uma fonte de verdade só,
   // compartilhada entre a fase de seleção e a de partida
@@ -183,8 +269,9 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
   const focusId = opponents.primary ?? biggestThreatId;
   const focusChampion = focusId ? championMap.get(focusId) : undefined;
 
-  const matchState = useMemo(
-    () => ({
+  const matchState = useMemo(() => {
+    const levelOf = (id: string) => session.levels[id] ?? session.myLevel;
+    return {
       selfRole: session.role,
       self: {
         championId: myChampionId,
@@ -194,26 +281,25 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
       },
       threat: {
         championId: focusId,
-        level: session.myLevel,
+        level: focusId ? levelOf(focusId) : session.myLevel,
         itemIds: focusId ? (session.enemyItems[focusId] ?? []) : [],
       },
       enemyTeam: ROLES.map((r) => session.enemies[r])
         .filter((id): id is string => Boolean(id) && id !== focusId)
         .map((id) => ({
           championId: id,
-          level: session.myLevel,
+          level: levelOf(id),
           itemIds: session.enemyItems[id] ?? [],
         })),
       allyTeam: ROLES.map((r) => session.allies[r])
         .filter((id): id is string => Boolean(id) && id !== myChampionId)
         .map((id) => ({
           championId: id,
-          level: session.myLevel,
+          level: levelOf(id),
           itemIds: session.allyItems[id] ?? [],
         })),
-    }),
-    [session, myChampionId, focusId],
-  );
+    };
+  }, [session, myChampionId, focusId]);
 
   const itemization = useMemo(
     () => {
@@ -228,18 +314,19 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
   );
 
   const combatSnapshot = useMemo(() => {
+    const levelFor = (id: string) => session.levels[id] ?? session.myLevel;
     const activeAlliesState = session.activeFightAllies.map(id => ({
       championId: id,
-      level: session.myLevel,
+      level: levelFor(id),
       itemIds: session.allyItems[id] ?? []
     }));
     const activeEnemiesState = session.activeFightEnemies.map(id => ({
       championId: id,
-      level: session.myLevel,
+      level: levelFor(id),
       itemIds: session.enemyItems[id] ?? []
     }));
     return simulateTeamCombat(activeAlliesState, activeEnemiesState, itemCatalog);
-  }, [session.activeFightAllies, session.activeFightEnemies, session.myLevel, session.allyItems, session.enemyItems, itemCatalog]);
+  }, [session.activeFightAllies, session.activeFightEnemies, session.myLevel, session.levels, session.allyItems, session.enemyItems, itemCatalog]);
 
   const threatRadar = useMemo(() => {
     if (!myChampionId) return null;
@@ -251,7 +338,7 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
         ...matchState,
         threat: {
           championId: enemyId,
-          level: session.myLevel,
+          level: session.levels[enemyId] ?? session.myLevel,
           itemIds: session.enemyItems[enemyId] ?? []
         }
       };
@@ -273,7 +360,7 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
     const hardestTarget = analyses[analyses.length - 1];
 
     return { easiestTarget, hardestTarget, all: analyses };
-  }, [matchState, session.enemies, session.myLevel, session.enemyItems, itemCatalog, championMap, myChampionId]);
+  }, [matchState, session.enemies, session.myLevel, session.levels, session.enemyItems, itemCatalog, championMap, myChampionId]);
 
   const plan = useMemo(
     () => buildGamePlan({ phase, role: session.role, me, matchup, enemyTeam }),
@@ -290,6 +377,12 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
 
   return (
     <div className="space-y-8">
+      <SyncBar
+        enabled={session.sync}
+        state={league}
+        onToggle={(sync) => update({ sync })}
+      />
+
       <StageTabs
         stage={session.stage}
         ready={ready}
@@ -359,6 +452,7 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
             primaryOpponent={opponents.primary ? championMap.get(opponents.primary) : undefined}
             enemies={session.enemies}
             championMap={championMap}
+            liveSynced={liveSynced}
             onUpdate={update}
           />
 
@@ -388,7 +482,7 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
               })
             }
             onReset={() => {
-              setSession(INITIAL);
+              setSession({ ...INITIAL, sync: session.sync });
               try {
                 localStorage.removeItem(STORAGE_KEY);
               } catch {
@@ -650,6 +744,7 @@ function StepThree({
   primaryOpponent,
   enemies,
   championMap,
+  liveSynced,
   onUpdate,
 }: {
   session: Session;
@@ -661,6 +756,7 @@ function StepThree({
   primaryOpponent?: ChampionRef;
   enemies: TeamSlots;
   championMap: Map<string, ChampionRef>;
+  liveSynced: boolean;
   onUpdate: (patch: Partial<Session>) => void;
 }) {
   const handleToggleFight = (team: "ALLY" | "ENEMY", championId: string) => {
@@ -733,6 +829,7 @@ function StepThree({
                   </p>
                   <p className="text-[9px] text-muted-foreground uppercase tracking-wider">
                     {ROLE_LABEL[role]}
+                    {session.levels[championId] ? ` · nível ${session.levels[championId]}` : ""}
                   </p>
                 </div>
               </div>
@@ -762,7 +859,38 @@ function StepThree({
       <h2 className="rule-heading">3 · Como está a partida agora</h2>
 
       <div className="panel p-4">
+        <div className="mb-4 grid grid-cols-3 gap-3 border-b border-border/50 pb-4">
+          <NumberField
+            label="Minuto"
+            value={session.minute}
+            min={0}
+            max={90}
+            hint={liveSynced ? "lido do jogo" : PHASE_LABEL[phase]}
+            readOnly={liveSynced}
+            onChange={(minute) => onUpdate({ minute })}
+          />
+          <NumberField
+            label="Seu nível"
+            value={session.myLevel}
+            min={1}
+            max={18}
+            hint={liveSynced ? "lido do jogo" : undefined}
+            readOnly={liveSynced}
+            onChange={(myLevel) => onUpdate({ myLevel })}
+          />
+          <NumberField
+            label="Seu ouro"
+            value={session.myGold}
+            min={0}
+            step={50}
+            hint={liveSynced ? "lido do jogo" : "decide o que dá para comprar agora"}
+            readOnly={liveSynced}
+            onChange={(myGold) => onUpdate({ myGold })}
+          />
+        </div>
+
         <p className="text-[11px] text-muted-foreground mb-4">
+          {liveSynced && "Itens e níveis são lidos do jogo a cada 2 segundos. "}
           Marque os campeões (<span className="font-mono text-foreground font-bold">[x]</span>) que estão envolvidos na luta atual para calcular quem ganha. Adicione os itens diretamente abaixo deles.
         </p>
 
@@ -782,6 +910,7 @@ function NumberField({
   max,
   step = 1,
   hint,
+  readOnly,
   onChange,
 }: {
   label: string;
@@ -790,6 +919,7 @@ function NumberField({
   max?: number;
   step?: number;
   hint?: string;
+  readOnly?: boolean;
   onChange: (value: number) => void;
 }) {
   return (
@@ -803,12 +933,16 @@ function NumberField({
         min={min}
         max={max}
         step={step}
+        readOnly={readOnly}
         onChange={(e) => {
           const n = Number(e.target.value);
           if (Number.isNaN(n)) return;
           onChange(Math.max(min, max !== undefined ? Math.min(max, n) : n));
         }}
-        className="border-input bg-background/60 focus-visible:border-gold/60 mt-1 h-9 w-full rounded-sm border px-2.5 font-mono text-sm tabular-nums outline-none"
+        className={cn(
+          "border-input bg-background/60 focus-visible:border-gold/60 mt-1 h-9 w-full rounded-sm border px-2.5 font-mono text-sm tabular-nums outline-none",
+          readOnly && "text-advantage border-advantage/40",
+        )}
       />
       {hint && <span className="text-muted-foreground/80 mt-1 block text-[10px]">{hint}</span>}
     </label>

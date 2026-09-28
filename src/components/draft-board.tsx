@@ -3,9 +3,16 @@
 import { useMemo, useState } from "react";
 import { Ban, Sparkles, X } from "lucide-react";
 import { EntityPicker, type PickerEntry } from "@/components/entity-picker";
-import { suggestPicks, estimateWinChance, type DraftBoard } from "@/engine/draft";
+import {
+  suggestPicks,
+  estimateWinChance,
+  strongAndWeak,
+  type DraftBoard,
+  type LaneMatchup,
+} from "@/engine/draft";
 import type { MatchupCatalog } from "@/engine/matchup";
 import { ROLES, ROLE_LABEL, type Role, type TeamSlots } from "@/engine/match";
+import { formatGames, formatRate } from "@/engine/stats";
 import { tagLabel } from "@/engine/tag-catalog";
 import type { ChampionRef } from "@/engine/types";
 import { cn } from "@/lib/utils";
@@ -132,11 +139,24 @@ export function DraftPhase({
         />
       </div>
 
+      <StrongAndWeak
+        catalog={catalog}
+        allies={allies}
+        enemies={enemies}
+        bans={bans}
+        onCounter={(role, id) => onAlly(role, id)}
+      />
+
       <Suggestions
         role={suggestionRole}
         suggestions={suggestions}
         isMyRole={suggestionRole === myRole}
         alreadyPicked={Boolean(allies[suggestionRole])}
+        statsNote={
+          catalog.stats
+            ? `${catalog.stats.matches.toLocaleString("pt-BR")} partidas ranqueadas reais do patch ${catalog.stats.patch}`
+            : null
+        }
         onPick={(id) => onAlly(suggestionRole, id)}
       />
 
@@ -350,6 +370,160 @@ function TeamColumn({
   );
 }
 
+/* --------------------------------------------------- forte e fraco contra */
+
+function StrongAndWeak({
+  catalog,
+  allies,
+  enemies,
+  bans,
+  onCounter,
+}: {
+  catalog: MatchupCatalog;
+  allies: TeamSlots;
+  enemies: TeamSlots;
+  bans: string[];
+  onCounter: (role: Role, id: string) => void;
+}) {
+  const picked = (slots: TeamSlots) =>
+    ROLES.filter((r) => slots[r]).map((r) => ({ role: r, id: slots[r]! }));
+  const allyPicks = picked(allies);
+  const enemyPicks = picked(enemies);
+  if (!allyPicks.length && !enemyPicks.length) return null;
+
+  const taken = new Set(
+    [...Object.values(allies), ...Object.values(enemies), ...bans].filter(Boolean) as string[],
+  );
+
+  return (
+    <section className="space-y-2">
+      <h3 className="rule-heading">Forte e fraco contra</h3>
+      <div className="grid gap-3 lg:grid-cols-2 [&>*]:min-w-0">
+        {[
+          { title: "Seu time", tone: "ally" as const, picks: allyPicks },
+          { title: "Time inimigo", tone: "enemy" as const, picks: enemyPicks },
+        ].map((side) => (
+          <div key={side.tone} className="space-y-2">
+            <p
+              className={cn(
+                "text-[10px] font-medium tracking-wider uppercase",
+                side.tone === "ally" ? "text-hex" : "text-disadvantage",
+              )}
+            >
+              {side.title}
+            </p>
+            {side.picks.length === 0 && (
+              <p className="text-muted-foreground text-[11px]">Ninguém escolhido ainda.</p>
+            )}
+            {side.picks.map(({ role, id }) => {
+              const champion = catalog.champions.get(id);
+              if (!champion) return null;
+              const { strong, weak } = strongAndWeak(id, role, catalog);
+              // num inimigo, quem ganha dele é a resposta — um clique e está escolhido
+              const canCounter = side.tone === "enemy" && !allies[role];
+              return (
+                <article key={role} className="panel-plain space-y-2.5 p-3">
+                  <div className="flex items-center gap-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={champion.iconUrl ?? ""} alt="" className="portrait size-8" />
+                    <p className="min-w-0 flex-1 truncate text-sm font-medium">{champion.name}</p>
+                    <span className="text-muted-foreground text-[10px]">{ROLE_LABEL[role]}</span>
+                  </div>
+                  <MatchupRow label="Forte contra" entries={strong} taken={taken} />
+                  <MatchupRow
+                    label={canCounter ? "Fraco contra — clique para pegar" : "Fraco contra"}
+                    entries={weak}
+                    taken={taken}
+                    onPick={canCounter ? (pickId) => onCounter(role, pickId) : undefined}
+                  />
+                </article>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <p className="text-muted-foreground/60 text-[10px] leading-relaxed">
+        Placar de −10 a +10 do ponto de vista de cada campeão, contra quem joga a mesma rota. Na
+        selva e no suporte o 1 contra 1 decide menos — ali vale mais a composição.
+        {catalog.stats
+          ? " Onde há partidas reais suficientes, a taxa de vitória entra no placar conforme a amostra."
+          : ""}
+      </p>
+    </section>
+  );
+}
+
+function MatchupRow({
+  label,
+  entries,
+  taken,
+  onPick,
+}: {
+  label: string;
+  entries: LaneMatchup[];
+  taken: Set<string>;
+  onPick?: (id: string) => void;
+}) {
+  return (
+    <div>
+      <p className="text-muted-foreground mb-1 text-[10px]">{label}</p>
+      <div className="grid grid-cols-3 gap-1.5">
+        {entries.map((m) => {
+          const unavailable = taken.has(m.champion.id);
+          const clickable = Boolean(onPick) && !unavailable;
+          const tone =
+            m.score >= 1.5 ? "text-advantage" : m.score <= -1.5 ? "text-disadvantage" : "text-even";
+          const content = (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={m.champion.iconUrl ?? ""} alt="" className="size-7 shrink-0 rounded-sm" />
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block truncate text-[11px]">{m.champion.name}</span>
+                <span className={cn("block font-mono text-[10px] tabular-nums", tone)}>
+                  {m.score > 0 ? "+" : ""}
+                  {m.score}
+                  {m.real && (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {formatRate(m.real.winRate)}
+                    </span>
+                  )}
+                </span>
+              </span>
+            </>
+          );
+          const title = [
+            m.reason,
+            m.real ? `${formatRate(m.real.winRate)} em ${formatGames(m.real.games)} partidas reais` : null,
+            unavailable ? "Já escolhido ou banido" : clickable ? "Clique para escolher" : null,
+          ]
+            .filter(Boolean)
+            .join("\n");
+          const base = cn(
+            "flex min-w-0 items-center gap-1.5 rounded-sm border border-transparent bg-background/50 p-1",
+            unavailable && "opacity-40",
+          );
+          return clickable ? (
+            <button
+              key={m.champion.id}
+              type="button"
+              title={title}
+              onClick={() => onPick!(m.champion.id)}
+              className={cn(base, "hover:border-gold/60 transition-colors")}
+            >
+              {content}
+            </button>
+          ) : (
+            <div key={m.champion.id} title={title} className={base}>
+              {content}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------- sugestões */
 
 function Suggestions({
@@ -357,12 +531,14 @@ function Suggestions({
   suggestions,
   isMyRole,
   alreadyPicked,
+  statsNote,
   onPick,
 }: {
   role: Role;
   suggestions: ReturnType<typeof suggestPicks>;
   isMyRole: boolean;
   alreadyPicked: boolean;
+  statsNote: string | null;
   onPick: (id: string) => void;
 }) {
   return (
@@ -419,9 +595,9 @@ function Suggestions({
       )}
 
       <p className="text-muted-foreground/60 text-[10px] leading-relaxed">
-        Isto não é uma lista dos campeões mais fortes do patch — taxa de vitória real só existe em
-        serviço pago. É quem melhor responde ao que já está no quadro: confronto direto, buraco na
-        sua composição e combinação com a sua dupla.
+        {statsNote
+          ? `Regras de confronto e composição somadas a ${statsNote}. Taxa de vitória só aparece com amostra suficiente e é corrigida pelo tamanho dela.`
+          : "Isto não é uma lista dos campeões mais fortes do patch: é quem melhor responde ao que já está no quadro — confronto direto, buraco na sua composição e combinação com a sua dupla. Colete partidas reais (npm run crawl) para somar taxa de vitória."}
       </p>
     </section>
   );

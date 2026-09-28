@@ -19,7 +19,11 @@
     "engine:smoke": "tsx scripts/smoke-engine.ts",
     "matchup:smoke": "tsx scripts/smoke-matchup.ts",
     "draft:smoke": "tsx scripts/smoke-draft.ts",
-    "items:audit": "tsx scripts/audit-items.ts"
+    "items:audit": "tsx scripts/audit-items.ts",
+    "crawl": "tsx scripts/crawl.ts",
+    "sync:smoke": "tsx scripts/smoke-league-sync.ts",
+    "review:smoke": "tsx scripts/smoke-review.ts",
+    "stats:smoke": "tsx scripts/smoke-stats.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

@@ -40,6 +40,8 @@ export type ItemRef = {
 
 export type ChampionRef = {
   id: string;
+  /** id numérico da Riot — é como o cliente do LoL e a API se referem ao campeão */
+  riotId: number;
   name: string;
   iconUrl: string | null;
   attackType: "MELEE" | "RANGED";

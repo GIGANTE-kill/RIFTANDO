@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Marcellus, Inter } from "next/font/google";
+import { SiteNav } from "@/components/site-nav";
 import "./globals.css";
 
 // Marcellus tem o ar de capitular romana das fontes do jogo, sem ser pesada.
@@ -31,7 +32,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body className={`${display.variable} ${sans.variable} min-h-dvh font-sans`}>{children}</body>
+      <body className={`${display.variable} ${sans.variable} min-h-dvh font-sans`}>
+        <SiteNav />
+        {children}
+      </body>
     </html>
   );
 }

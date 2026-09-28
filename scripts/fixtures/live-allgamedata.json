@@ -1,0 +1,501 @@
+{
+ "activePlayer": {
+  "currentGold": 1350.5,
+  "level": 13,
+  "riotId": "Voce#BR1",
+  "summonerName": "Voce"
+ },
+ "allPlayers": [
+  {
+   "championName": "Garen",
+   "rawChampionName": "game_character_displayname_Garen",
+   "team": "ORDER",
+   "position": "",
+   "level": 13,
+   "isBot": false,
+   "isDead": false,
+   "riotId": "A1#BR1",
+   "summonerName": "A1",
+   "items": [
+    {
+     "itemID": 3047,
+     "slot": 0,
+     "count": 1
+    },
+    {
+     "itemID": 6631,
+     "slot": 1,
+     "count": 1
+    },
+    {
+     "itemID": 1037,
+     "slot": 2,
+     "count": 1
+    },
+    {
+     "itemID": 3340,
+     "slot": 3,
+     "count": 1
+    }
+   ],
+   "scores": {
+    "kills": 3,
+    "deaths": 2,
+    "assists": 4,
+    "creepScore": 160,
+    "wardScore": 10.0
+   },
+   "summonerSpells": {
+    "summonerSpellOne": {
+     "displayName": "Flash",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+    },
+    "summonerSpellTwo": {
+     "displayName": "Teleport",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerTeleport_DisplayName"
+    }
+   }
+  },
+  {
+   "championName": "Lee Sin",
+   "rawChampionName": "game_character_displayname_LeeSin",
+   "team": "ORDER",
+   "position": "",
+   "level": 12,
+   "isBot": false,
+   "isDead": false,
+   "riotId": "A2#BR1",
+   "summonerName": "A2",
+   "items": [
+    {
+     "itemID": 3111,
+     "slot": 0,
+     "count": 1
+    },
+    {
+     "itemID": 6692,
+     "slot": 1,
+     "count": 1
+    },
+    {
+     "itemID": 3340,
+     "slot": 2,
+     "count": 1
+    }
+   ],
+   "scores": {
+    "kills": 4,
+    "deaths": 3,
+    "assists": 8,
+    "creepScore": 120,
+    "wardScore": 10.0
+   },
+   "summonerSpells": {
+    "summonerSpellOne": {
+     "displayName": "Flash",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+    },
+    "summonerSpellTwo": {
+     "displayName": "Smite",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerSmite_DisplayName"
+    }
+   }
+  },
+  {
+   "championName": "Ahri",
+   "rawChampionName": "game_character_displayname_Ahri",
+   "team": "ORDER",
+   "position": "",
+   "level": 13,
+   "isBot": false,
+   "isDead": false,
+   "riotId": "Voce#BR1",
+   "summonerName": "Voce",
+   "items": [
+    {
+     "itemID": 3020,
+     "slot": 0,
+     "count": 1
+    },
+    {
+     "itemID": 6655,
+     "slot": 1,
+     "count": 1
+    },
+    {
+     "itemID": 2003,
+     "slot": 2,
+     "count": 1
+    },
+    {
+     "itemID": 3364,
+     "slot": 3,
+     "count": 1
+    }
+   ],
+   "scores": {
+    "kills": 6,
+    "deaths": 1,
+    "assists": 5,
+    "creepScore": 185,
+    "wardScore": 10.0
+   },
+   "summonerSpells": {
+    "summonerSpellOne": {
+     "displayName": "Flash",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+    },
+    "summonerSpellTwo": {
+     "displayName": "Dot",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerDot_DisplayName"
+    }
+   }
+  },
+  {
+   "championName": "Jinx",
+   "rawChampionName": "game_character_displayname_Jinx",
+   "team": "ORDER",
+   "position": "",
+   "level": 12,
+   "isBot": false,
+   "isDead": false,
+   "riotId": "A4#BR1",
+   "summonerName": "A4",
+   "items": [
+    {
+     "itemID": 3006,
+     "slot": 0,
+     "count": 1
+    },
+    {
+     "itemID": 6672,
+     "slot": 1,
+     "count": 1
+    },
+    {
+     "itemID": 1038,
+     "slot": 2,
+     "count": 1
+    },
+    {
+     "itemID": 3363,
+     "slot": 3,
+     "count": 1
+    }
+   ],
+   "scores": {
+    "kills": 5,
+    "deaths": 2,
+    "assists": 3,
+    "creepScore": 170,
+    "wardScore": 10.0
+   },
+   "summonerSpells": {
+    "summonerSpellOne": {
+     "displayName": "Flash",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+    },
+    "summonerSpellTwo": {
+     "displayName": "Heal",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerHeal_DisplayName"
+    }
+   }
+  },
+  {
+   "championName": "Thresh",
+   "rawChampionName": "game_character_displayname_Thresh",
+   "team": "ORDER",
+   "position": "",
+   "level": 11,
+   "isBot": false,
+   "isDead": false,
+   "riotId": "A5#BR1",
+   "summonerName": "A5",
+   "items": [
+    {
+     "itemID": 3190,
+     "slot": 0,
+     "count": 1
+    },
+    {
+     "itemID": 3117,
+     "slot": 1,
+     "count": 1
+    },
+    {
+     "itemID": 3364,
+     "slot": 2,
+     "count": 1
+    }
+   ],
+   "scores": {
+    "kills": 0,
+    "deaths": 3,
+    "assists": 12,
+    "creepScore": 30,
+    "wardScore": 10.0
+   },
+   "summonerSpells": {
+    "summonerSpellOne": {
+     "displayName": "Flash",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+    },
+    "summonerSpellTwo": {
+     "displayName": "Exhaust",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerExhaust_DisplayName"
+    }
+   }
+  },
+  {
+   "championName": "Darius",
+   "rawChampionName": "game_character_displayname_Darius",
+   "team": "CHAOS",
+   "position": "",
+   "level": 14,
+   "isBot": false,
+   "isDead": false,
+   "riotId": "B1#BR1",
+   "summonerName": "B1",
+   "items": [
+    {
+     "itemID": 3047,
+     "slot": 0,
+     "count": 1
+    },
+    {
+     "itemID": 6631,
+     "slot": 1,
+     "count": 1
+    },
+    {
+     "itemID": 3053,
+     "slot": 2,
+     "count": 1
+    },
+    {
+     "itemID": 3340,
+     "slot": 3,
+     "count": 1
+    }
+   ],
+   "scores": {
+    "kills": 5,
+    "deaths": 3,
+    "assists": 2,
+    "creepScore": 175,
+    "wardScore": 10.0
+   },
+   "summonerSpells": {
+    "summonerSpellOne": {
+     "displayName": "Flash",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+    },
+    "summonerSpellTwo": {
+     "displayName": "Teleport",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerTeleport_DisplayName"
+    }
+   }
+  },
+  {
+   "championName": "Vi",
+   "rawChampionName": "game_character_displayname_Vi",
+   "team": "CHAOS",
+   "position": "",
+   "level": 12,
+   "isBot": false,
+   "isDead": false,
+   "riotId": "B2#BR1",
+   "summonerName": "B2",
+   "items": [
+    {
+     "itemID": 3111,
+     "slot": 0,
+     "count": 1
+    },
+    {
+     "itemID": 6692,
+     "slot": 1,
+     "count": 1
+    },
+    {
+     "itemID": 3340,
+     "slot": 2,
+     "count": 1
+    }
+   ],
+   "scores": {
+    "kills": 3,
+    "deaths": 4,
+    "assists": 6,
+    "creepScore": 110,
+    "wardScore": 10.0
+   },
+   "summonerSpells": {
+    "summonerSpellOne": {
+     "displayName": "Flash",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+    },
+    "summonerSpellTwo": {
+     "displayName": "Smite",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerSmite_DisplayName"
+    }
+   }
+  },
+  {
+   "championName": "Lux",
+   "rawChampionName": "game_character_displayname_Lux",
+   "team": "CHAOS",
+   "position": "",
+   "level": 11,
+   "isBot": false,
+   "isDead": false,
+   "riotId": "B3#BR1",
+   "summonerName": "B3",
+   "items": [
+    {
+     "itemID": 3020,
+     "slot": 0,
+     "count": 1
+    },
+    {
+     "itemID": 6655,
+     "slot": 1,
+     "count": 1
+    },
+    {
+     "itemID": 3364,
+     "slot": 2,
+     "count": 1
+    }
+   ],
+   "scores": {
+    "kills": 2,
+    "deaths": 4,
+    "assists": 7,
+    "creepScore": 40,
+    "wardScore": 10.0
+   },
+   "summonerSpells": {
+    "summonerSpellOne": {
+     "displayName": "Flash",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+    },
+    "summonerSpellTwo": {
+     "displayName": "Ignite",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerIgnite_DisplayName"
+    }
+   }
+  },
+  {
+   "championName": "Caitlyn",
+   "rawChampionName": "game_character_displayname_Caitlyn",
+   "team": "CHAOS",
+   "position": "",
+   "level": 12,
+   "isBot": false,
+   "isDead": false,
+   "riotId": "B4#BR1",
+   "summonerName": "B4",
+   "items": [
+    {
+     "itemID": 3006,
+     "slot": 0,
+     "count": 1
+    },
+    {
+     "itemID": 3031,
+     "slot": 1,
+     "count": 1
+    },
+    {
+     "itemID": 3363,
+     "slot": 2,
+     "count": 1
+    }
+   ],
+   "scores": {
+    "kills": 3,
+    "deaths": 3,
+    "assists": 4,
+    "creepScore": 180,
+    "wardScore": 10.0
+   },
+   "summonerSpells": {
+    "summonerSpellOne": {
+     "displayName": "Flash",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+    },
+    "summonerSpellTwo": {
+     "displayName": "Heal",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerHeal_DisplayName"
+    }
+   }
+  },
+  {
+   "championName": "Zed",
+   "rawChampionName": "game_character_displayname_Zed",
+   "team": "CHAOS",
+   "position": "",
+   "level": 13,
+   "isBot": false,
+   "isDead": false,
+   "riotId": "B5#BR1",
+   "summonerName": "B5",
+   "items": [
+    {
+     "itemID": 3047,
+     "slot": 0,
+     "count": 1
+    },
+    {
+     "itemID": 3142,
+     "slot": 1,
+     "count": 1
+    },
+    {
+     "itemID": 1036,
+     "slot": 2,
+     "count": 1
+    },
+    {
+     "itemID": 3340,
+     "slot": 3,
+     "count": 1
+    }
+   ],
+   "scores": {
+    "kills": 4,
+    "deaths": 4,
+    "assists": 3,
+    "creepScore": 165,
+    "wardScore": 10.0
+   },
+   "summonerSpells": {
+    "summonerSpellOne": {
+     "displayName": "Flash",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+    },
+    "summonerSpellTwo": {
+     "displayName": "Ignite",
+     "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerIgnite_DisplayName"
+    }
+   }
+  }
+ ],
+ "events": {
+  "Events": [
+   {
+    "EventID": 0,
+    "EventName": "GameStart",
+    "EventTime": 0.05
+   }
+  ]
+ },
+ "gameData": {
+  "gameMode": "CLASSIC",
+  "gameTime": 1102.4,
+  "mapName": "Map11",
+  "mapNumber": 11,
+  "mapTerrain": "Default"
+ }
+}

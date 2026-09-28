@@ -3,6 +3,17 @@
 Análise tática de partidas de LoL: matchup de rota, prioridades e itemização de
 counter — tudo por regras determinísticas, **sem nenhuma API de IA no back-end**.
 
+Um site de estatística diz *o quê* ("essa build tem 52%"). O Riftando diz *o
+porquê* e *o agora*, e acompanha a partida do começo ao fim sem você digitar
+nada:
+
+| Momento | O que acontece | Fonte |
+|---|---|---|
+| Seleção de campeões | picks e bans aparecem sozinhos; a cada pick inimigo, a resposta | LCU — o cliente do LoL, local |
+| Partida | minuto, nível, ouro e itens dos 10 jogadores; o próximo item recalcula a cada compra | Live Client Data API — o jogo, local |
+| Depois da partida | cada compra comparada com o que o motor pediria naquele minuto; cada morte classificada; as 3 lições | Match-V5 — API oficial da Riot |
+| Sempre | taxa de vitória real, corrigida pela amostra, somada às regras | partidas coletadas por você |
+
 ## Stack
 
 Next.js 15 (App Router) · TypeScript · Tailwind v4 + shadcn/ui · PostgreSQL + Drizzle
@@ -16,6 +27,13 @@ npm run sync                    # baixa patch, campeões e itens
 npm run tags:derive             # deriva as tags táticas
 npm run db:seed                 # carrega as regras de matchup e contra-item
 npm run dev
+```
+
+Opcional — perfil, revisão pós-jogo e estatística: coloque `RIOT_API_KEY` no
+`.env.local` (chave gratuita em developer.riotgames.com) e colete partidas:
+
+```bash
+npm run crawl -- --platform br1 --matches 2000   # pare o npm run dev antes (PGlite)
 ```
 
 ### Banco
@@ -67,9 +85,8 @@ A primeira aba é a fase de escolha: bans, os 5 contra 5 por rota e, a cada pick
 do inimigo, **quem pegar em resposta**. A lista dentro de cada slot já vem
 filtrada pela rota e ordenada pela recomendação — o draft dura segundos.
 
-**O que este motor não é: um tier list.** Taxa de vitória real só existe em API
-paga ou raspagem de site, e nenhuma das duas entra aqui. "Melhor escolha"
-significa *melhor resposta ao que já está no quadro*, somando quatro coisas:
+**O que este motor não é: um tier list.** "Melhor escolha" significa *melhor
+resposta ao que já está no quadro*, somando quatro coisas:
 
 | Componente | O que responde |
 |---|---|
@@ -87,6 +104,13 @@ O mesmo cuidado vale para o atirador: o motor de duelo dizia — corretamente �
 que Yasuo vence Caitlyn no 1 contra 1, e por isso o colocava como melhor
 atirador. Péssimo conselho: a rota de baixo não é um duelo. Quem aparece em três
 rotas está de passagem na rota de baixo, e o motor agora sabe disso.
+
+Com partidas coletadas (`npm run crawl`), entra um quinto sinal: taxa de
+vitória real do confronto e do campeão na rota. Ela **nunca decide sozinha**:
+passa por encolhimento bayesiano (`shrunkWinRate` — 5 vitórias em 6 partidas
+viram ~53%, não 83%), só aparece acima de uma amostra mínima e soma ao placar
+das regras em vez de substituí-lo. Quando regras e dados discordam, a página de
+estatísticas aponta o confronto como candidato a override manual.
 
 **Chances de composição** somam os confrontos das cinco rotas (com o peso de cada
 uma) mais o equilíbrio de frente de batalha, controle e escalonamento. O
@@ -208,3 +232,50 @@ Riot (`<status>Stunned</status>`, `<healing>`, `<physicalDamage>`) e das
 Campeões novos entram sozinhos; suas correções são permanentes.
 
 `npm run sources:smoke` roda o derivador contra as fontes reais sem tocar no banco.
+
+## Sincronização com o LoL
+
+`/api/league` lê duas APIs **locais**, que só existem na máquina com o LoL aberto
+— nada sai de 127.0.0.1 e nenhuma chave é necessária:
+
+- **LCU** (cliente): o `lockfile` na pasta de instalação traz porta e senha da
+  sessão. Dali saem a fase (`ChampSelect`, `InProgress`…), picks, bans, a sua
+  rota e a última partida terminada. O cliente nunca revela a rota do inimigo:
+  `assignRoles` testa as 120 distribuições e fica com a que respeita o time
+  inteiro — Lux e Zed não vão os dois para o meio.
+- **Live Client Data** (jogo, porta 2999): a tela de placar em JSON. Quem leva
+  Golpear é o caçador, e isso vale mais que qualquer lista de rotas.
+
+Os dois servem HTTPS com certificado autoassinado da Riot, que o navegador
+recusa — por isso a leitura passa pelo servidor do Next (`src/lib/league/`).
+A lista de rotas de cada campeão vem em **ordem alfabética**, então ela diz onde
+ele joga mas não onde mais; o desempate é a classe oficial da Riot ou, com
+partidas coletadas, a frequência real.
+
+Para desenvolver sem o jogo: `RIFTANDO_LIVE_FIXTURE` e `RIFTANDO_LCU_FIXTURE`
+apontam para os JSONs gravados em `scripts/fixtures`. `npm run sync:smoke` roda
+os dois contra o banco.
+
+## Revisão pós-jogo
+
+`src/engine/review.ts` reconstrói o inventário dos 10 jogadores evento a evento
+(compra, venda, componente consumido, desfazer) e, a cada lendário que você
+comprou, roda o motor de itens **com o estado daquele minuto**. Cada morte é
+classificada — gank, 1 contra 1, sozinho, luta em desvantagem — pela posição
+dos aliados no quadro mais próximo. A rota compara o que o confronto prometia
+com o ouro aos 10 e aos 14.
+
+Três compras "erradas" pelo mesmo motivo são um erro só: as divergências são
+agrupadas pelo item que faltou, senão uma única lacuna ocupava as três lições.
+
+`/partida/demo` mostra a revisão com uma partida sintética, sem chave.
+`npm run review:smoke` verifica que ela encontra os erros plantados nela.
+
+## Estatística
+
+Partidas ficam em `riot_matches` (JSON inteiro — partida terminada não muda, e
+o limite de requisições é o recurso mais escasso) e `match_participants`, uma
+linha por jogador, desnormalizada para que "Ahri no meio contra Zed" seja um
+`GROUP BY` sem `JOIN`. O coletor começa pelo Desafiante e segue em bola de neve;
+pode ser interrompido e retomado. `npm run stats:smoke` grava uma partida,
+confere a agregação e a apaga.

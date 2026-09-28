@@ -34,5 +34,16 @@ function create(): Database {
   return drizzlePostgres(client, { schema }) as unknown as Database;
 }
 
-export const db: Database = (globalForDb.riftandoDb ??= create());
+/**
+ * Aberto na primeira consulta, não no import. O build do Next carrega cada
+ * rota em vários workers ao mesmo tempo só para coletar metadados — abrir o
+ * PGlite no import fazia todos disputarem o mesmo diretório (e um abortava).
+ */
+export const db: Database = new Proxy({} as Database, {
+  get(_, prop) {
+    const real = (globalForDb.riftandoDb ??= create());
+    const value = Reflect.get(real, prop, real);
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+});
 export { schema };

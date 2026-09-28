@@ -1,16 +1,19 @@
 /**
  * Assistente de seleção. Responde, a cada pick do inimigo, "quem eu pego agora".
  *
- * ⚠️ IMPORTANTE — o que este motor NÃO é: um tier list. Taxa de vitória real só
- * existe em API paga ou raspagem de site, e esta ferramenta não usa nenhuma das
- * duas. "Melhor escolha" aqui significa *melhor resposta ao que já está no
- * quadro*: quem vence o confronto direto, quem tapa o buraco da sua composição
- * e quem combina com o seu parceiro de rota. É um critério diferente de "o
- * campeão mais forte do patch", e melhor para o que você está decidindo agora.
+ * O que este motor NÃO é: um tier list. "Melhor escolha" aqui significa *melhor
+ * resposta ao que já está no quadro*: quem vence o confronto direto, quem tapa
+ * o buraco da sua composição e quem combina com o seu parceiro de rota.
+ *
+ * Quando há partidas reais coletadas (`npm run crawl`, API oficial da Riot), a
+ * taxa de vitória entra como mais um sinal — corrigida pelo tamanho da amostra,
+ * nunca substituindo as regras. As regras explicam o porquê; os dados
+ * confirmam ou desmentem.
  */
 import { analyzeMatchup, type MatchupCatalog } from "./matchup";
 import type { Role, TeamSlots } from "./match";
 import { ROLE_LABEL } from "./match";
+import { formatGames, formatRate } from "./stats";
 import type { ChampionRef } from "./types";
 
 export type DraftBoard = {
@@ -267,6 +270,17 @@ export function suggestPicks({
       else if (counterScore <= -1.2)
         reasons.push(`Perde a rota para ${opponentName} (${matchup.score})`);
       else reasons.push(`Rota equilibrada contra ${opponentName}`);
+
+      // o mesmo confronto nas partidas reais: pesa conforme a amostra
+      const real = catalog.stats?.matchup(champion.id, opponentId, role);
+      if (real) {
+        const points = (real.adjusted - 0.5) * 100;
+        score += points * 0.2 * ROLE_MODEL[role].blindWeight;
+        if (Math.abs(points) >= 1.5)
+          reasons.unshift(
+            `${formatRate(real.raw)} de vitória contra ${opponentName} em ${formatGames(real.games)} partidas reais`,
+          );
+      }
     } else {
       // inimigo ainda não escolheu: vale quem é seguro contra a rota inteira
       const blind = blindPickScore(champion, role, catalog);
@@ -363,6 +377,17 @@ export function suggestPicks({
       reasons.push(`${enemyImmobile} inimigos não têm fuga — iniciar neles é de graça`);
     }
 
+    // 4b) força do campeão na rota neste patch, pelas partidas coletadas
+    const patchForm = catalog.stats?.role(champion.id, role);
+    if (patchForm) {
+      const points = (patchForm.adjusted - 0.5) * 100;
+      score += points * 0.35;
+      if (Math.abs(points) >= 1)
+        reasons.push(
+          `${formatRate(patchForm.raw)} de vitória na rota no patch ${catalog.stats!.patch} (${formatGames(patchForm.games)} partidas)`,
+        );
+    }
+
     // 5) o kit combina com a função da rota?
     score += fit;
     if (fit >= 1) {
@@ -399,6 +424,93 @@ export function suggestPicks({
   }
 
   return suggestions.sort((a, b) => b.score - a.score).slice(0, limit);
+}
+
+/* --------------------------------------------------- forte e fraco contra */
+
+export type LaneMatchup = {
+  champion: ChampionRef;
+  /** -10..+10, do ponto de vista de quem está sendo analisado */
+  score: number;
+  /** o motivo mais forte, já em português */
+  reason: string;
+  /** presente quando há partidas reais suficientes do confronto */
+  real: { winRate: number; games: number } | null;
+};
+
+const laneCache = new WeakMap<MatchupCatalog, Map<string, LaneMatchup[]>>();
+
+/**
+ * Todos os confrontos de um campeão na rota, do melhor para o pior.
+ *
+ * O placar é o mesmo do card de rota e das sugestões — do ponto de vista do
+ * campeão analisado — para que "forte contra Zed" aqui nunca contradiga
+ * "rota desfavorável contra Zed" lá. Com partidas coletadas, a taxa real entra
+ * com peso proporcional à amostra: 20 partidas mexem pouco, 300 mandam.
+ */
+export function laneMatchups(
+  championId: string,
+  role: Role,
+  catalog: MatchupCatalog,
+): LaneMatchup[] {
+  let cache = laneCache.get(catalog);
+  if (!cache) {
+    cache = new Map();
+    laneCache.set(catalog, cache);
+  }
+  const key = `${championId}|${role}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const list: LaneMatchup[] = [];
+  for (const opponent of catalog.champions.values()) {
+    if (opponent.id === championId || !opponent.positions.includes(role)) continue;
+
+    const analysis = analyzeMatchup(
+      { selfChampionId: championId, enemyChampionId: opponent.id, allyJungleId: null, enemyJungleId: null },
+      catalog,
+    );
+    // o motivo que explica o sinal do placar, não um detalhe do outro lado
+    const decisive =
+      analysis.contributions.find((c) => Math.sign(c.advantage) === Math.sign(analysis.score)) ??
+      analysis.contributions[0];
+
+    let score = analysis.score;
+    const stat = catalog.stats?.matchup(championId, opponent.id, role);
+    let real: LaneMatchup["real"] = null;
+    if (stat) {
+      real = { winRate: stat.raw, games: stat.games };
+      // 10 pontos percentuais acima de 50% valem o placar máximo das regras
+      const dataScore = Math.max(-10, Math.min(10, (stat.adjusted - 0.5) * 100));
+      const weight = Math.min(0.75, stat.games / (stat.games + 60));
+      score = score * (1 - weight) + dataScore * weight;
+    }
+
+    list.push({
+      champion: opponent,
+      score: Math.round(score * 10) / 10,
+      reason: decisive ? decisive.guideline : "Confronto sem vantagem clara de nenhum lado",
+      real,
+    });
+  }
+
+  list.sort((a, b) => b.score - a.score);
+  cache.set(key, list);
+  return list;
+}
+
+/**
+ * Os N confrontos mais fáceis e os N mais difíceis de um campeão na rota.
+ *
+ * Sempre N de cada lado, mesmo que o "mais difícil" seja equilibrado: para o
+ * Zed quase tudo no meio é favorável, e mesmo assim os três piores são os que
+ * você quer saber. O placar diz o quanto.
+ */
+export function strongAndWeak(championId: string, role: Role, catalog: MatchupCatalog, n = 3) {
+  const all = laneMatchups(championId, role, catalog);
+  const strong = all.slice(0, n);
+  const weak = all.slice(Math.max(n, all.length - n)).reverse();
+  return { strong, weak };
 }
 
 /* ------------------------------------------------------------- chances */

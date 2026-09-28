@@ -4,6 +4,7 @@
  *
  *   meu campeão × inimigo direto (+ selvas) → vantagem, diretrizes, plano
  */
+import type { StatsIndex } from "./stats";
 import { TAG_CATALOG, tagLabel } from "./tag-catalog";
 import type { ChampionRef } from "./types";
 
@@ -32,6 +33,8 @@ export type MatchupCatalog = {
   champions: Map<string, ChampionRef>;
   tagRules: MatchupTagRuleRef[];
   overrides: MatchupOverrideRef[];
+  /** partidas reais coletadas — quando existem, o draft as soma às regras */
+  stats?: StatsIndex;
 };
 
 export type LaneState = {

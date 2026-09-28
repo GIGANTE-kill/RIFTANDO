@@ -19,6 +19,8 @@ import {
 import type { ChampionRef, ItemRef } from "@/engine/types";
 import type { CounterRuleRef } from "@/engine/itemization";
 import type { MatchupTagRuleRef, MatchupOverrideRef } from "@/engine/matchup";
+import type { StatsPayload } from "@/engine/stats";
+import { getStatsPayload } from "./matches";
 
 export type CatalogPayload = {
   patch: string;
@@ -27,6 +29,8 @@ export type CatalogPayload = {
   rules: CounterRuleRef[];
   matchupRules: MatchupTagRuleRef[];
   matchupOverrides: MatchupOverrideRef[];
+  /** partidas reais coletadas com `npm run crawl` — ausente sem coleta */
+  stats: StatsPayload | null;
 };
 
 /**
@@ -46,6 +50,7 @@ export async function getCatalog(): Promise<CatalogPayload | null> {
     ruleRows,
     matchupRows,
     overrideRows,
+    stats,
   ] = await Promise.all([
     db
       .select({ champion: champions, stats: championPatchStats })
@@ -77,6 +82,9 @@ export async function getCatalog(): Promise<CatalogPayload | null> {
     db.select().from(counterRules).where(eq(counterRules.isActive, true)),
     db.select().from(matchupTagRules).where(eq(matchupTagRules.isActive, true)),
     db.select().from(championMatchupOverrides),
+    // a estatística é opcional: sem as tabelas de partida (banco antigo) o
+    // motor segue só com as regras
+    getStatsPayload(patch.version).catch(() => null),
   ]);
 
   const championTagMap = new Map<string, { slug: string; weight: number }[]>();
@@ -97,6 +105,7 @@ export async function getCatalog(): Promise<CatalogPayload | null> {
     patch: patch.version,
     champions: championRows.map(({ champion, stats }) => ({
       id: champion.id,
+      riotId: champion.riotId,
       name: champion.name,
       iconUrl: champion.iconUrl,
       attackType: champion.attackType,
@@ -180,5 +189,6 @@ export async function getCatalog(): Promise<CatalogPayload | null> {
       advantage: o.advantage,
       guideline: o.guideline,
     })),
+    stats,
   };
 }

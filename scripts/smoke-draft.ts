@@ -6,7 +6,12 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { getCatalog } from "../src/db/queries/catalog";
-import { suggestPicks, estimateWinChance, type DraftBoard } from "../src/engine/draft";
+import {
+  suggestPicks,
+  estimateWinChance,
+  strongAndWeak,
+  type DraftBoard,
+} from "../src/engine/draft";
 import type { MatchupCatalog } from "../src/engine/matchup";
 import { EMPTY_TEAM, ROLE_LABEL, type Role } from "../src/engine/match";
 
@@ -75,6 +80,30 @@ async function main() {
   for (const f of estimate.factors) {
     console.log(`  ${f.delta > 0 ? "+" : ""}${Math.round(f.delta * 10) / 10}  ${f.label}`);
   }
+
+  // 5) forte e fraco contra: 3 de cada lado, sempre da mesma rota
+  console.log(`
+${"=".repeat(72)}`);
+  const expect = (cond: boolean, what: string) => {
+    if (!cond) throw new Error(`FALHOU: ${what}`);
+  };
+  for (const [id, role] of [["Darius", "TOP"], ["Zed", "MID"], ["Caitlyn", "ADC"]] as const) {
+    const { strong, weak } = strongAndWeak(id, role, catalog);
+    console.log(`${id}: forte contra ${strong.map((m) => `${m.champion.name} ${m.score}`).join(", ")}`);
+    console.log(`${" ".repeat(id.length)}  fraco contra ${weak.map((m) => `${m.champion.name} ${m.score}`).join(", ")}`);
+    expect(strong.length === 3 && weak.length === 3, `${id}: 3 de cada lado`);
+    expect(strong[2].score >= weak[0].score, `${id}: o pior forte não perde para o melhor fraco`);
+    expect(
+      [...strong, ...weak].every((m) => m.champion.positions.includes(role) && m.champion.id !== id),
+      `${id}: só oponentes da mesma rota, sem ele mesmo`,
+    );
+  }
+  // o confronto curado à mão (a cegueira do Teemo) tem de aparecer
+  expect(
+    strongAndWeak("Darius", "TOP", catalog).weak.some((m) => m.champion.id === "Teemo"),
+    "Teemo entre os piores do Darius",
+  );
+  console.log("ok — forte e fraco contra");
 
   process.exit(0);
 }
