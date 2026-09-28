@@ -13,8 +13,22 @@ import * as schema from "./schema";
  * Postgres compilado para WASM, não uma emulação: enums, arrays e jsonb
  * se comportam igual.
  */
-// POSTGRES_URL é o nome que a integração Neon/Postgres da Vercel cria
-const url = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? "file:./.pglite";
+/**
+ * A URL de conexão direta com o Postgres.
+ *
+ * POSTGRES_URL é o nome que as integrações de banco da Vercel criam. O Prisma
+ * Postgres põe em DATABASE_URL um endereço `prisma+postgres://` do acelerador
+ * dele — que só o Prisma entende — e deixa a conexão direta em POSTGRES_URL.
+ */
+function connectionUrl(): string {
+  const direct = (v: string | undefined) => v && /^(postgres|postgresql|file):/.test(v);
+  const { DATABASE_URL, POSTGRES_URL } = process.env;
+  if (direct(DATABASE_URL)) return DATABASE_URL!;
+  if (direct(POSTGRES_URL)) return POSTGRES_URL!;
+  return DATABASE_URL ?? "file:./.pglite";
+}
+
+const url = connectionUrl();
 export const isEmbedded = url.startsWith("file:");
 
 /** Serverless (Vercel): disco somente leitura e uma instância por requisição. */
