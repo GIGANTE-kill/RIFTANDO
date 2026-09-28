@@ -199,12 +199,33 @@ export async function getCatalog(): Promise<CatalogPayload | null> {
  * de um erro 500 genérico — em produção o Next esconde a mensagem do erro.
  */
 export async function loadCatalog(): Promise<
-  { payload: CatalogPayload | null; error: null } | { payload: null; error: string }
+  { payload: CatalogPayload | null; error: null } | { payload: null; error: DatabaseProblem }
 > {
   try {
     return { payload: await getCatalog(), error: null };
   } catch (e) {
     console.error("[riftando] banco indisponível:", e);
-    return { payload: null, error: e instanceof Error ? e.message : String(e) };
+    return { payload: null, error: classifyDatabaseError(e) };
   }
+}
+
+export type DatabaseProblem = "NOT_CONFIGURED" | "NO_TABLES" | "AUTH" | "UNREACHABLE" | "UNKNOWN";
+
+/**
+ * O que deu errado, sem expor SQL nem URL para quem visita o site. O Drizzle
+ * embrulha o erro do Postgres em `cause`; o código SQLSTATE diz o motivo.
+ */
+export function classifyDatabaseError(e: unknown): DatabaseProblem {
+  if (e instanceof Error && e.message.startsWith("Banco não configurado")) return "NOT_CONFIGURED";
+  const chain: { code?: string; message?: string }[] = [];
+  for (let cur: unknown = e; cur && chain.length < 5; cur = (cur as { cause?: unknown }).cause)
+    chain.push(cur as { code?: string; message?: string });
+  const codes = chain.map((c) => c.code);
+  const text = chain.map((c) => c.message ?? "").join(" ");
+  if (codes.includes("42P01") || /does not exist/.test(text)) return "NO_TABLES";
+  if (codes.includes("28P01") || codes.includes("28000") || /password|authentication/i.test(text))
+    return "AUTH";
+  if (codes.some((c) => c && /^(ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET)$/.test(c)) || /connect/i.test(text))
+    return "UNREACHABLE";
+  return "UNKNOWN";
 }

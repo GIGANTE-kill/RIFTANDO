@@ -1,3 +1,4 @@
+import type { DatabaseProblem } from "@/db/queries/catalog";
 import type { ChampionRef, ItemRef } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
@@ -105,32 +106,68 @@ export function RiotKeyNotice({ message }: { message?: string }) {
 }
 
 /** O banco não respondeu — o que fazer, em vez de uma página de erro. */
-export function DatabaseNotice({ error }: { error: string }) {
-  const notConfigured = error.startsWith("Banco não configurado");
-  return (
-    <div className="panel mx-auto max-w-xl space-y-3 p-5 text-sm">
-      <p className="font-display text-gold text-lg">
-        {notConfigured ? "Falta conectar o banco de dados" : "O banco de dados não respondeu"}
-      </p>
-      {notConfigured ? (
+export function DatabaseNotice({ error }: { error: DatabaseProblem }) {
+  const populate = (
+    <>
+      <code className="bg-muted rounded px-1">npm run db:push</code>,{" "}
+      <code className="bg-muted rounded px-1">sync</code>,{" "}
+      <code className="bg-muted rounded px-1">tags:derive</code> e{" "}
+      <code className="bg-muted rounded px-1">db:seed</code>
+    </>
+  );
+  const content: Record<DatabaseProblem, { title: string; body: React.ReactNode }> = {
+    NOT_CONFIGURED: {
+      title: "Falta conectar o banco de dados",
+      body: (
         <ol className="text-muted-foreground list-decimal space-y-1 pl-5 text-xs leading-relaxed">
           <li>
             No painel da Vercel: projeto &gt; <span className="text-foreground">Storage</span> &gt;
             Create Database &gt; <span className="text-foreground">Neon</span> (plano gratuito) e
-            conecte ao projeto — isso cria a variável <code className="bg-muted rounded px-1">DATABASE_URL</code>.
+            conecte ao projeto — isso cria a variável{" "}
+            <code className="bg-muted rounded px-1">DATABASE_URL</code>.
           </li>
-          <li>
-            Popule o banco a partir do seu computador:{" "}
-            <code className="bg-muted rounded px-1">npm run db:push</code>,{" "}
-            <code className="bg-muted rounded px-1">sync</code>,{" "}
-            <code className="bg-muted rounded px-1">tags:derive</code> e{" "}
-            <code className="bg-muted rounded px-1">db:seed</code> com essa DATABASE_URL.
-          </li>
+          <li>Popule o banco a partir do seu computador com essa URL: {populate}.</li>
           <li>Faça um novo deploy.</li>
         </ol>
-      ) : (
-        <p className="text-muted-foreground text-xs leading-relaxed break-words">{error}</p>
-      )}
+      ),
+    },
+    NO_TABLES: {
+      title: "O banco está conectado, mas vazio",
+      body: (
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          As tabelas ainda não foram criadas. Rode, com a DATABASE_URL deste deploy: {populate}.
+        </p>
+      ),
+    },
+    AUTH: {
+      title: "O banco recusou a senha",
+      body: (
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          A DATABASE_URL está com usuário ou senha errados — copie de novo do painel do banco.
+        </p>
+      ),
+    },
+    UNREACHABLE: {
+      title: "O banco não respondeu",
+      body: (
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          O servidor do banco não aceitou a conexão. Confira a DATABASE_URL e se o banco está ativo.
+        </p>
+      ),
+    },
+    UNKNOWN: {
+      title: "O banco de dados deu erro",
+      body: (
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          O detalhe está no log do servidor (na Vercel: projeto &gt; Logs).
+        </p>
+      ),
+    },
+  };
+  return (
+    <div className="panel mx-auto max-w-xl space-y-3 p-5 text-sm">
+      <p className="font-display text-gold text-lg">{content[error].title}</p>
+      {content[error].body}
     </div>
   );
 }

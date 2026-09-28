@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCatalog } from "@/db/queries/catalog";
+import { classifyDatabaseError, getCatalog } from "@/db/queries/catalog";
 import { getRecentMatches, resolveAccount, roleOfParticipant, finalItems } from "@/db/queries/matches";
 import {
   hasRiotKey,
@@ -98,7 +98,7 @@ export default async function PlayerPage({
     console.error("[riftando] perfil:", e);
     return (
       <Shell>
-        <DatabaseNotice error={e instanceof Error ? e.message : String(e)} />
+        <DatabaseNotice error={classifyDatabaseError(e)} />
       </Shell>
     );
   }
