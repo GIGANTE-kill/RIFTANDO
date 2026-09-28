@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCatalog } from "@/db/queries/catalog";
+import { loadCatalog } from "@/db/queries/catalog";
 import { getItemStats } from "@/db/queries/matches";
 import { ROLES, ROLE_LABEL, type Role } from "@/engine/match";
 import { analyzeMatchup } from "@/engine/matchup";
@@ -14,7 +14,7 @@ import {
 } from "@/engine/stats";
 import type { ChampionRef, ItemRef } from "@/engine/types";
 import { engineCatalogs } from "@/lib/engine-catalogs";
-import { ChampIcon } from "@/components/match-bits";
+import { ChampIcon, DatabaseNotice } from "@/components/match-bits";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,8 @@ export default async function StatsPage({
 }) {
   const sp = await searchParams;
   const role: Role = (ROLES as readonly string[]).includes(sp.rota ?? "") ? (sp.rota as Role) : "MID";
-  const payload = await getCatalog();
+  const { payload, error } = await loadCatalog();
+  if (error) return <Shell><DatabaseNotice error={error} /></Shell>;
 
   if (!payload?.stats)
     return (

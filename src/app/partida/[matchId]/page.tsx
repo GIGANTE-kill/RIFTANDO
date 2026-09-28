@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import Link from "next/link";
-import { getCatalog } from "@/db/queries/catalog";
+import { loadCatalog } from "@/db/queries/catalog";
 import { getMatch } from "@/db/queries/matches";
 import { hasRiotKey, RiotApiError } from "@/lib/riot/client";
 import type { MatchDto, TimelineDto } from "@/lib/riot/types";
@@ -10,7 +10,14 @@ import { verdictLabel } from "@/engine/matchup";
 import { ROLE_LABEL } from "@/engine/match";
 import { engineCatalogs } from "@/lib/engine-catalogs";
 import { GoldChart } from "@/components/gold-chart";
-import { ChampIcon, ItemIcons, RiotKeyNotice, formatDuration, kda } from "@/components/match-bits";
+import {
+  ChampIcon,
+  DatabaseNotice,
+  ItemIcons,
+  RiotKeyNotice,
+  formatDuration,
+  kda,
+} from "@/components/match-bits";
 import type { ItemRef } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +71,8 @@ export default async function MatchReviewPage({
     if (e instanceof RiotApiError) return <Shell><RiotKeyNotice message={e.message} /></Shell>;
     throw e;
   }
-  const payload = await getCatalog();
+  const { payload, error } = await loadCatalog();
+  if (error) return <Shell><DatabaseNotice error={error} /></Shell>;
 
   if (!loaded || !payload)
     return (

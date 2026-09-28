@@ -35,6 +35,8 @@ export function useLeagueState(enabled: boolean): LeagueState | null | undefined
       }
       if (cancelled) return;
       setState(next);
+      // hospedado: o servidor nunca vai ver o LoL deste PC — não adianta insistir
+      if (next?.hosted) return;
       const busy = next?.live || next?.champSelect;
       timer = setTimeout(tick, busy ? 2000 : next?.client ? 4000 : 8000);
     };
@@ -73,6 +75,19 @@ export function SyncBar({
 }) {
   let tone: "off" | "idle" | "on" = "off";
   let text = "Sincronização desligada: preencha a partida à mão.";
+
+  if (state?.hosted) {
+    return (
+      <div className="panel-plain flex items-start gap-3 px-3 py-2">
+        <span className="bg-muted-foreground/40 mt-1.5 inline-flex size-2 shrink-0 rounded-full" />
+        <p className="text-muted-foreground text-[11px] leading-relaxed">
+          A sincronização automática com o LoL funciona com o Riftando rodando no seu PC (
+          <code className="bg-muted rounded px-1">npm run dev</code>), onde o jogo está aberto — um
+          site na internet não enxerga o seu cliente. Aqui, preencha a partida à mão.
+        </p>
+      </div>
+    );
+  }
 
   if (enabled) {
     if (state === undefined) {

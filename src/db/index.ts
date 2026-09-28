@@ -13,8 +13,20 @@ import * as schema from "./schema";
  * Postgres compilado para WASM, não uma emulação: enums, arrays e jsonb
  * se comportam igual.
  */
-const url = process.env.DATABASE_URL ?? "file:./.pglite";
+// POSTGRES_URL é o nome que a integração Neon/Postgres da Vercel cria
+const url = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? "file:./.pglite";
 export const isEmbedded = url.startsWith("file:");
+
+/** Serverless (Vercel): disco somente leitura e uma instância por requisição. */
+const isServerless = Boolean(process.env.VERCEL);
+
+export class DatabaseNotConfiguredError extends Error {
+  constructor() {
+    super(
+      "Banco não configurado: na Vercel o PGlite embutido não funciona (o disco é somente leitura e a pasta .pglite não sobe no deploy). Conecte um Postgres — Vercel > Storage > Neon — e defina DATABASE_URL.",
+    );
+  }
+}
 
 type Database = ReturnType<typeof drizzlePglite<typeof schema>>;
 
@@ -24,10 +36,13 @@ const globalForDb = globalThis as unknown as { riftandoDb?: Database };
 
 function create(): Database {
   if (isEmbedded) {
+    if (isServerless) throw new DatabaseNotConfiguredError();
     return drizzlePglite(new PGlite(url.replace(/^file:/, "")), { schema });
   }
   const client = postgres(url, {
-    max: process.env.NODE_ENV === "production" ? 10 : 3,
+    // cada função serverless tem o próprio pool: poucas conexões por instância,
+    // e o pooler do Neon/Supabase segura o resto
+    max: isServerless ? 2 : process.env.NODE_ENV === "production" ? 10 : 3,
     prepare: false,
   });
   // as duas instâncias são estruturalmente equivalentes para as nossas queries

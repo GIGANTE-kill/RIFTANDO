@@ -12,6 +12,7 @@ import {
 import { ROLE_LABEL } from "@/engine/match";
 import {
   ChampIcon,
+  DatabaseNotice,
   ItemIcons,
   RiotKeyNotice,
   formatDuration,
@@ -93,7 +94,13 @@ export default async function PlayerPage({
     data = { account, entries: entries ?? [], matches, catalog };
   } catch (e) {
     if (e instanceof RiotApiError) return <Shell><RiotKeyNotice message={e.message} /></Shell>;
-    throw e;
+    // o que não é da Riot aqui é o banco (conta e partidas são gravadas nele)
+    console.error("[riftando] perfil:", e);
+    return (
+      <Shell>
+        <DatabaseNotice error={e instanceof Error ? e.message : String(e)} />
+      </Shell>
+    );
   }
 
   const { account, entries, matches, catalog } = data;

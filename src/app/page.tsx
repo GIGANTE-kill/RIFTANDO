@@ -1,10 +1,18 @@
-import { getCatalog } from "@/db/queries/catalog";
+import { loadCatalog } from "@/db/queries/catalog";
+import { DatabaseNotice } from "@/components/match-bits";
 import { MatchAnalyzer } from "@/components/match-analyzer";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const catalog = await getCatalog();
+  const { payload: catalog, error } = await loadCatalog();
+
+  if (error)
+    return (
+      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+        <DatabaseNotice error={error} />
+      </main>
+    );
 
   if (!catalog) {
     return (

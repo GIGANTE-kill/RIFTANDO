@@ -192,3 +192,19 @@ export async function getCatalog(): Promise<CatalogPayload | null> {
     stats,
   };
 }
+
+/**
+ * `getCatalog` que nunca derruba a página: sem banco (deploy sem DATABASE_URL,
+ * servidor fora do ar, tabelas não criadas) a tela explica o que falta em vez
+ * de um erro 500 genérico — em produção o Next esconde a mensagem do erro.
+ */
+export async function loadCatalog(): Promise<
+  { payload: CatalogPayload | null; error: null } | { payload: null; error: string }
+> {
+  try {
+    return { payload: await getCatalog(), error: null };
+  } catch (e) {
+    console.error("[riftando] banco indisponível:", e);
+    return { payload: null, error: e instanceof Error ? e.message : String(e) };
+  }
+}

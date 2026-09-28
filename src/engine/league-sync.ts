@@ -67,6 +67,11 @@ export type ClientIdentity = {
 
 /** O que `/api/league` devolve: tudo que o LoL aberto nesta máquina informa. */
 export type LeagueState = {
+  /**
+   * o servidor roda hospedado (Vercel): ele nunca enxerga o LoL de quem está
+   * vendo a página — a sincronização só existe rodando no próprio PC
+   */
+  hosted: boolean;
   /** o cliente (lobby) está aberto */
   client: boolean;
   /** fase do cliente: Lobby, ChampSelect, InProgress, EndOfGame… */

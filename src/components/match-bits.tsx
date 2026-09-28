@@ -103,3 +103,34 @@ export function RiotKeyNotice({ message }: { message?: string }) {
     </div>
   );
 }
+
+/** O banco não respondeu — o que fazer, em vez de uma página de erro. */
+export function DatabaseNotice({ error }: { error: string }) {
+  const notConfigured = error.startsWith("Banco não configurado");
+  return (
+    <div className="panel mx-auto max-w-xl space-y-3 p-5 text-sm">
+      <p className="font-display text-gold text-lg">
+        {notConfigured ? "Falta conectar o banco de dados" : "O banco de dados não respondeu"}
+      </p>
+      {notConfigured ? (
+        <ol className="text-muted-foreground list-decimal space-y-1 pl-5 text-xs leading-relaxed">
+          <li>
+            No painel da Vercel: projeto &gt; <span className="text-foreground">Storage</span> &gt;
+            Create Database &gt; <span className="text-foreground">Neon</span> (plano gratuito) e
+            conecte ao projeto — isso cria a variável <code className="bg-muted rounded px-1">DATABASE_URL</code>.
+          </li>
+          <li>
+            Popule o banco a partir do seu computador:{" "}
+            <code className="bg-muted rounded px-1">npm run db:push</code>,{" "}
+            <code className="bg-muted rounded px-1">sync</code>,{" "}
+            <code className="bg-muted rounded px-1">tags:derive</code> e{" "}
+            <code className="bg-muted rounded px-1">db:seed</code> com essa DATABASE_URL.
+          </li>
+          <li>Faça um novo deploy.</li>
+        </ol>
+      ) : (
+        <p className="text-muted-foreground text-xs leading-relaxed break-words">{error}</p>
+      )}
+    </div>
+  );
+}
