@@ -35,6 +35,10 @@ type Database = ReturnType<typeof drizzlePglite<typeof schema>>;
 const globalForDb = globalThis as unknown as { riftandoDb?: Database };
 
 function create(): Database {
+  // "localhost" num servidor da Vercel é a própria função, sem Postgres nenhum —
+  // quase sempre a URL de exemplo do .env.example copiada para o projeto
+  const pointsToLocalMachine = /@(localhost|127\.0\.0\.1)(:|\/)/.test(url);
+  if (isServerless && pointsToLocalMachine) throw new DatabaseNotConfiguredError();
   if (isEmbedded) {
     if (isServerless) throw new DatabaseNotConfiguredError();
     return drizzlePglite(new PGlite(url.replace(/^file:/, "")), { schema });
