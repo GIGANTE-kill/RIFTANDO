@@ -8,6 +8,8 @@ export type PickerEntry = {
   name: string;
   iconUrl: string | null;
   subtitle?: string;
+  /** opção válida mas incomum (campeão fora da rota): aparece mais apagada */
+  dimmed?: boolean;
 };
 
 /**
@@ -73,6 +75,7 @@ export function EntityPicker({
               className={cn(
                 "group hover:border-gold/70 flex flex-col items-center gap-1 rounded-sm",
                 "border border-transparent p-1 transition-colors",
+                entry.dimmed && "opacity-55 hover:opacity-100",
               )}
             >
               {entry.iconUrl ? (

@@ -71,21 +71,27 @@ export function DraftPhase({
   );
 
   /**
-   * A lista dentro do slot vem filtrada pela rota e já na ordem recomendada —
-   * a seleção dura segundos, ninguém tem tempo de procurar num alfabeto de 173.
+   * Todo campeão cabe em qualquer rota — Amumu no topo é escolha do jogador,
+   * não erro. Mas a seleção dura segundos: quem joga a rota vem primeiro (no
+   * seu time, já na ordem recomendada) e o resto vem depois, apagado, e só
+   * aparece quando você digita o nome.
    */
   const entriesForRole = (role: Role, side: "ALLY" | "ENEMY"): PickerEntry[] => {
-    const eligible = entries.filter((e) => {
-      const champion = catalog.champions.get(String(e.id));
-      return champion?.positions.includes(role);
-    });
-    if (side === "ENEMY") return eligible;
+    const isOnRole = (e: PickerEntry) =>
+      Boolean(catalog.champions.get(String(e.id))?.positions.includes(role));
+    let onRole = entries.filter(isOnRole);
+    const offRole = entries
+      .filter((e) => !isOnRole(e))
+      .map((e) => ({ ...e, dimmed: true, subtitle: `fora da rota habitual · ${e.subtitle ?? ""}` }));
 
-    const ranked = suggestPicks({ role, board, catalog, limit: 999 });
-    const order = new Map(ranked.map((s, i) => [s.champion.id, i]));
-    return [...eligible].sort(
-      (a, b) => (order.get(String(a.id)) ?? 999) - (order.get(String(b.id)) ?? 999),
-    );
+    if (side === "ALLY") {
+      const ranked = suggestPicks({ role, board, catalog, limit: 999 });
+      const order = new Map(ranked.map((s, i) => [s.champion.id, i]));
+      onRole = [...onRole].sort(
+        (a, b) => (order.get(String(a.id)) ?? 999) - (order.get(String(b.id)) ?? 999),
+      );
+    }
+    return [...onRole, ...offRole];
   };
 
   const estimate = useMemo(() => estimateWinChance(board, catalog), [board, catalog]);
@@ -360,7 +366,7 @@ function TeamColumn({
               setOpenRole(null);
             }}
             placeholder={`Campeão para ${ROLE_LABEL[openRole].toLowerCase()}…`}
-            emptyLabel="Nenhum campeão dessa rota bate com a busca"
+            emptyLabel="Nenhum campeão bate com a busca"
             columns={6}
             autoFocus
           />

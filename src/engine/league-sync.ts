@@ -201,6 +201,15 @@ export function assignRoles(
   return slots;
 }
 
+/**
+ * Rotas que o jogador corrigiu à mão, por campeão. A inferência erra o
+ * incomum — Amumu no topo, suporte que trocou de rota no lobby — e sem trava a
+ * próxima leitura do cliente desfaria a correção dois segundos depois.
+ */
+export type RoleLocks = { ally: Record<string, Role>; enemy: Record<string, Role> };
+
+export const NO_LOCKS: RoleLocks = { ally: {}, enemy: {} };
+
 /* ------------------------------------------------------------ seleção */
 
 export type DraftFromClient = {
@@ -214,6 +223,7 @@ export function draftFromChampSelect(
   snapshot: ChampSelectSnapshot,
   champions: Map<string, ChampionRef>,
   prior?: RolePrior,
+  locks: RoleLocks = NO_LOCKS,
 ): DraftFromClient {
   const byRiotId = new Map([...champions.values()].map((c) => [c.riotId, c.id]));
   const idOf = (n: number) => (n > 0 ? (byRiotId.get(n) ?? null) : null);
@@ -221,15 +231,26 @@ export function draftFromChampSelect(
   const me = snapshot.myTeam.find((m) => m.cellId === snapshot.localPlayerCellId);
   const myRole = me ? (LCU_POSITION[me.assignedPosition] ?? null) : null;
 
-  // aliados: em fila ranqueada o cliente diz a rota de cada um
+  // aliados: em fila ranqueada o cliente diz a rota de cada um — mas a
+  // correção do jogador vence (quem troca de rota no lobby continua com a
+  // posição original no cliente), então as travas entram primeiro
   const allies: TeamSlots = { ...EMPTY_TEAM };
   const allyUnplaced: RoleCandidate[] = [];
-  for (const m of snapshot.myTeam) {
-    const id = idOf(m.championId);
-    if (!id) continue;
-    const role = LCU_POSITION[m.assignedPosition];
-    if (role && !allies[role]) allies[role] = id;
-    else allyUnplaced.push({ championId: id });
+  const picked = snapshot.myTeam
+    .map((m) => ({
+      id: idOf(m.championId),
+      // "" em fila às cegas: sem rota informada
+      assigned: LCU_POSITION[m.assignedPosition] as Role | undefined,
+    }))
+    .filter((m): m is { id: string; assigned: Role | undefined } => Boolean(m.id));
+  for (const m of picked) {
+    const locked = locks.ally[m.id];
+    if (locked && !allies[locked]) allies[locked] = m.id;
+  }
+  for (const m of picked) {
+    if (Object.values(allies).includes(m.id)) continue;
+    if (m.assigned && !allies[m.assigned]) allies[m.assigned] = m.id;
+    else allyUnplaced.push({ championId: m.id });
   }
   if (allyUnplaced.length) {
     const fixed = ROLES.filter((r) => allies[r]).map((r) => ({
@@ -242,7 +263,11 @@ export function draftFromChampSelect(
   // inimigos: o cliente nunca revela a rota deles — distribui pelo time inteiro
   const enemyIds = snapshot.theirTeam.map((m) => idOf(m.championId)).filter(Boolean) as string[];
   const enemies = enemyIds.length
-    ? assignRoles(enemyIds.map((championId) => ({ championId })), champions, prior)
+    ? assignRoles(
+        enemyIds.map((championId) => ({ championId, fixed: locks.enemy[championId] ?? null })),
+        champions,
+        prior,
+      )
     : { ...EMPTY_TEAM };
 
   const bans = [...new Set(snapshot.bans.map(idOf).filter((x): x is string => Boolean(x)))];
@@ -286,6 +311,7 @@ export function matchFromLive(
   champions: Map<string, ChampionRef>,
   items: Map<number, ItemRef>,
   prior?: RolePrior,
+  locks: RoleLocks = NO_LOCKS,
 ): MatchFromClient | null {
   const self = snapshot.players.find((p) => p.isSelf);
   if (!self) return null;
@@ -300,7 +326,10 @@ export function matchFromLive(
         .filter((r) => r.player.team === side)
         .map((r) => ({
           championId: r.id,
-          fixed: LIVE_POSITION[r.player.position] ?? null,
+          fixed:
+            (side === self.team ? locks.ally : locks.enemy)[r.id] ??
+            LIVE_POSITION[r.player.position] ??
+            null,
           hasSmite: r.player.hasSmite,
         })),
       champions,

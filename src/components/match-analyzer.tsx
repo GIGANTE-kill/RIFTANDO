@@ -5,7 +5,13 @@ import { Check, Copy, RotateCcw, X } from "lucide-react";
 import { ChampionSlot } from "@/components/champion-slot";
 import { DraftPhase } from "@/components/draft-board";
 import { SyncBar, useLeagueState } from "@/components/league-sync";
-import { draftFromChampSelect, matchFromLive, type RolePrior } from "@/engine/league-sync";
+import {
+  NO_LOCKS,
+  draftFromChampSelect,
+  matchFromLive,
+  type RoleLocks,
+  type RolePrior,
+} from "@/engine/league-sync";
 import { EntityPicker, type PickerEntry } from "@/components/entity-picker";
 import { analyze, itemFit, type Catalog } from "@/engine/itemization";
 import { simulateCombat, simulateTeamCombat, type CombatSnapshot } from "@/engine/combat-sim";
@@ -57,6 +63,8 @@ type Session = {
   levels: Record<string, number>;
   /** ler seleção e partida do LoL aberto nesta máquina */
   sync: boolean;
+  /** rotas corrigidas à mão — a sincronização não desfaz */
+  roleLocks: RoleLocks;
 };
 
 const INITIAL: Session = {
@@ -75,6 +83,7 @@ const INITIAL: Session = {
   activeFightEnemies: [],
   levels: {},
   sync: true,
+  roleLocks: NO_LOCKS,
 };
 
 const VERDICT_STYLE: Record<Verdict, string> = {
@@ -158,11 +167,13 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
     lastPhase.current = phase;
 
     if (league.champSelect) {
-      const draft = draftFromChampSelect(league.champSelect, championMap, rolePrior);
+      const snapshot = league.champSelect;
       setSession((prev) => {
-        // seleção nova: a partida anterior não vale mais nada
+        // seleção nova: a partida anterior (e as correções dela) não vale mais nada
         const base = entering ? { ...INITIAL, sync: prev.sync } : prev;
+        const draft = draftFromChampSelect(snapshot, championMap, rolePrior, base.roleLocks);
         const role = draft.myRole ?? base.role;
+        const placed = new Set(Object.values(draft.allies).filter(Boolean));
         return {
           ...base,
           stage: "SELECAO",
@@ -172,7 +183,11 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
           // cliente informa sempre vence. `base` já foi zerado ao entrar na
           // seleção, então nada de uma partida anterior sobrevive.
           allies: Object.fromEntries(
-            ROLES.map((r) => [r, draft.allies[r] ?? base.allies[r]]),
+            ROLES.map((r) => {
+              const local = base.allies[r];
+              // o local só sobrevive se o cliente não pôs esse campeão em outra rota
+              return [r, draft.allies[r] ?? (local && !placed.has(local) ? local : null)];
+            }),
           ) as TeamSlots,
           enemies: draft.enemies,
           bans: draft.bans,
@@ -182,9 +197,11 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
     }
 
     if (league.live) {
-      const match = matchFromLive(league.live, championMap, itemMap, rolePrior);
-      if (!match) return;
+      const live = league.live;
       setSession((prev) => {
+        // as correções feitas na seleção continuam valendo dentro da partida
+        const match = matchFromLive(live, championMap, itemMap, rolePrior, prev.roleLocks);
+        if (!match) return prev;
         const present = new Set([...Object.values(match.allies), ...Object.values(match.enemies)]);
         return {
           ...prev,
@@ -370,10 +387,27 @@ export function MatchAnalyzer({ payload }: { payload: CatalogPayload }) {
   const ready = Boolean(myChampionId && opponents.primary);
 
   const update = (patch: Partial<Session>) => setSession((s) => ({ ...s, ...patch }));
-  const setEnemy = (role: Role) => (id: string | null) =>
-    setSession((s) => ({ ...s, enemies: { ...s.enemies, [role]: id } }));
-  const setAlly = (role: Role) => (id: string | null) =>
-    setSession((s) => ({ ...s, allies: { ...s.allies, [role]: id } }));
+  /**
+   * Põe (ou tira) um campeão numa rota e trava a escolha. Escolher alguém que
+   * já está em outra rota do mesmo time é *mover*: ele sai de lá. É assim que
+   * se corrige a inferência — Amumu que o motor pôs na selva vai para o topo.
+   */
+  const placeIn = (team: "ally" | "enemy") => (role: Role) => (id: string | null) =>
+    setSession((s) => {
+      const key = team === "ally" ? "allies" : "enemies";
+      const slots: TeamSlots = { ...s[key] };
+      for (const r of ROLES) if (id && slots[r] === id) slots[r] = null;
+      slots[role] = id;
+
+      const locks = Object.fromEntries(
+        Object.entries(s.roleLocks[team]).filter(([champ, r]) => r !== role && champ !== id),
+      ) as Record<string, Role>;
+      if (id) locks[id] = role;
+
+      return { ...s, [key]: slots, roleLocks: { ...s.roleLocks, [team]: locks } };
+    });
+  const setEnemy = placeIn("enemy");
+  const setAlly = placeIn("ally");
 
   return (
     <div className="space-y-8">

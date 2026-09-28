@@ -57,6 +57,32 @@ async function main() {
   expect(match.enemies.SUPPORT === "Lux" && match.enemies.MID === "Zed", "rotas inimigas inferidas na partida");
   expect(!match.allyItems.Ahri.includes(2003), "poção não conta como item");
   expect(match.minute === 18, "minuto vem do relógio do jogo");
+
+  // travas: o jogador corrige a inferência e a sincronização respeita
+  const amumuId = champions.get("Amumu")!.riotId;
+  const withAmumu = {
+    ...client.champSelect,
+    theirTeam: [
+      { cellId: 5, championId: amumuId, assignedPosition: "" },
+      { cellId: 7, championId: champions.get("Zed")!.riotId, assignedPosition: "" },
+    ],
+  };
+  const guessed = draftFromChampSelect(withAmumu, champions);
+  console.log(`
+Amumu inimigo sem correção: ${ROLES.find((r) => guessed.enemies[r] === "Amumu")}`);
+  expect(guessed.enemies.TOP !== "Amumu", "sem trava, Amumu não vai para o topo (não é a rota dele)");
+  const locked = draftFromChampSelect(withAmumu, champions, undefined, {
+    ally: { Garen: "SUPPORT" },
+    enemy: { Amumu: "TOP" },
+  });
+  expect(locked.enemies.TOP === "Amumu", "trava põe o Amumu inimigo no topo");
+  expect(locked.allies.SUPPORT === "Garen" && locked.allies.TOP === null, "trava vence a rota que o lobby informou");
+  const liveLocked = matchFromLive(live, champions, items, undefined, {
+    ally: {},
+    enemy: { Vi: "TOP", Darius: "JUNGLE" },
+  })!;
+  expect(liveLocked.enemies.TOP === "Vi" && liveLocked.enemies.JUNGLE === "Darius", "trava vale dentro da partida, até contra Golpear");
+  console.log("travas ok: Amumu no topo, Garen de suporte, Vi no topo na partida");
   console.log("\nok — todas as verificações passaram");
   process.exit(0);
 }
