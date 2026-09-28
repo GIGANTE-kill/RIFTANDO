@@ -23,7 +23,8 @@
     "crawl": "tsx scripts/crawl.ts",
     "sync:smoke": "tsx scripts/smoke-league-sync.ts",
     "review:smoke": "tsx scripts/smoke-review.ts",
-    "stats:smoke": "tsx scripts/smoke-stats.ts"
+    "stats:smoke": "tsx scripts/smoke-stats.ts",
+    "db:copy": "tsx scripts/copy-to-remote.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
